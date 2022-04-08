@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  securityContext:
+    # If applied at spec, this session applies rules to the Pod and to containers by cascading
+    runAsUser: 1000
+  containers:
+  - name: nginx-container
+    image: nginx
+    ports:
+    - containerPort: 8080
+    env:
+      - name: APP_COLOR
+        value: blue
+    envFrom:
+      - configMapRef:
+          name: app-config
+      - secretRef:
+          name: app-secret
+    securityContext:
+      # If applied at containers, this session applies rules to the containers (and overrides any pod securityContext configs)
+      runAsUser: 1000
+      capabilities:
+        # capabilities is only supported at container level 
+        add: ["MAC_ADMIN"]
+    resources:
+      requests: 
+        memory: "1Gi"
+        cpu: 1
+      limits:
+        memory: "2Gi"
+        cpu: 2
+  tolerations:
+    - key: app
+      operator: Equal
+      value: blue
+      effect: NoSchedule
+  nodeSelector:
+    # nodeSelector cannot provided expressions like OR/AND in nodeSelector. For this, use nodeAffinity.
+    size: Large
+  afinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution: # preferredDuringSchedulingIgnoredDuringExection | requiredDuringSchedulingRequriedDuringExecution
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: size
+            operator: In #NotIn|Exists
+            values:
+            - Large
+            - Medium
+  serviceAccountName: dashboard-sa # Must have the serviceaccount created on cluster before creating pod
